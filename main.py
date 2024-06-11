@@ -35,48 +35,107 @@ STEP_SIZE = 1
 sentences = []
 next_chars = []
 
-# * looping through the text and
-for i in range(0, len(text) - SEQ_LENGTH, STEP_SIZE):
-	sentences.append(text[i: i + SEQ_LENGTH])
-	next_chars.append(text[i + SEQ_LENGTH])
+#! uncomment lines below if training for the first time (leave # # in place)
+
+# # * looping through the text and
+# for i in range(0, len(text) - SEQ_LENGTH, STEP_SIZE):
+# 	sentences.append(text[i: i + SEQ_LENGTH])
+# 	next_chars.append(text[i + SEQ_LENGTH])
  
-#* converting the lists into numpy arrays
+# #* converting the lists into numpy arrays
 
-# create a 3D array of zeros with shape -> "number of sentences" x "sequence length" x "number of characters"
-x = np.zeros((len(sentences), SEQ_LENGTH, len(characters)), dtype=np.bool)
+# # create a 3D array of zeros with shape -> "number of sentences" x "sequence length" x "number of characters"
+# x = np.zeros((len(sentences), SEQ_LENGTH, len(characters)), dtype=np.bool)
 
-# create a 2D array of zeros with shape -> "number of sentences" x "number of characters"
-y = np.zeros((len(sentences), len(characters)), dtype=np.bool)
+# # create a 2D array of zeros with shape -> "number of sentences" x "number of characters"
+# y = np.zeros((len(sentences), len(characters)), dtype=np.bool)
 
-for i, sentence in enumerate in sentences:
-	for t, char in enumerate(sentence):
-		x[i, t, char_2_index[char]] = 1
-	y[i, char_2_index[next_chars[i]]] = 1
+# for i, sentence in enumerate(sentences):
+#     for t, char in enumerate(sentence):
+#         x[i, t, char_2_index[char]] = 1
+#     y[i, char_2_index[next_chars[i]]] = 1
 
-#> --- --- --- Creating the model for the first time --- --- --- <#
-# # uncomment lines below if training for the first time (leave # # in place)
+# #> --- --- --- Creating the model for the first time --- --- --- <#
 
-model = Sequential()
-model.add(LSTM(128, input_shape=(SEQ_LENGTH, len(characters))))
-model.add(Dense(len(characters)))
-model.add(Activation('softmax'))
+# model = Sequential()
+# model.add(LSTM(128, input_shape=(SEQ_LENGTH, len(characters))))
+# model.add(Dense(len(characters)))
+# model.add(Activation('softmax'))
 
-#* Compiling the model
-#	loss: loss function
-#	optimizer: optimizer
-#	metrics: list of metrics to be evaluated and displayed
+# #* Compiling the model
+# #	loss: loss function
+# #	optimizer: optimizer
+# #	metrics: list of metrics to be evaluated and displayed
 
-model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.01))
-#X model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.01), metrics=['accuracy'])
+# model.compile(loss='categorical_crossentropy', optimizer=RMSprop(learning_rate=0.01))
+# #xx model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.01), metrics=['accuracy'])
 
-#* fitting the model
+# #* fitting the model
 
-model.fit(x, y, batch_size=128, epochs=3)
-#x model.fit(x, y, batch_size=256, epochs=4)
+# Set the batch size for training
+# A larger batch size can speed up training, but may also require more memory
+# A smaller batch size can be more memory-efficient, but may also require more iterations to converge on a solution
+# In general, a larger batch size is recommended for larger datasets, while a smaller batch size is recommended for smaller datasets or when memory is limited
+batch_size = 128 #? try different batch sizes like 32, 64, 128, 256, 512
 
-model.save('text_gen.model')
+# Set the number of epochs for training
+# A larger number of epochs can allow the model to learn more complex patterns in the data, but may also increase the risk of overfitting
+# In general, a larger number of epochs is recommended for larger datasets, while a smaller number of epochs is recommended for smaller datasets or when overfitting is a concern
+epochs = 3 #? try different number of epochs like  1, 3, 4, 6, 7, 9
+
+#* Train the model with specified batch size and number of epochs
+
+# model.fit(x, y, batch_size=batch_size, epochs=epochs)
+# #xx model.fit(x, y, batch_size=256, epochs=4)
+
+# model.save('text_gen.model')
 
 #> --- --- --- Loading the model --- --- --- <#
 
 model = tf.keras.models.load_model('text_gen.model')
 
+def sample(preds, temperature = 1.0):
+    preds = np.asarray(preds).astype('float64')
+    preds = np.log(preds) / temperature
+    exp_preds = np.exp(preds)
+    preds = exp_preds / np.sum(exp_preds)
+    probas = np.random.multinomial(1, preds, 1)
+    return np.argmax(probas)
+
+#> --- --- --- Generating text --- --- --- <#
+
+def generate_text(length, temperature):
+    start_index = rd.randint(0, len(text) - SEQ_LENGTH - 1)
+    generated = ''
+    sentence = text[start_index: start_index + SEQ_LENGTH]
+    generated += sentence
+    for i in range(length):
+        x_pred = np.zeros((1, SEQ_LENGTH, len(characters)))
+        for t, char in enumerate(sentence):
+            x_pred[0, t, char_2_index[char]] = 1.
+
+        preds = model.predict(x_pred, verbose=0)[0]
+        next_index = sample(preds, temperature)
+        next_char = index_2_char[next_index]
+        
+        generated += next_char
+        sentence = sentence[1:] + next_char
+
+    return generated
+
+#> --- --- --- Generating text --- --- --- <#
+
+print("--- --- --- Generating text, temp = 0.2 --- --- ---\n")
+print(generate_text(500, 0.2))
+
+print("--- --- --- Generating text, temp = 0.5 --- --- ---\n")
+print(generate_text(500, 0.5))
+
+print("--- --- --- Generating text, temp = 0.6 --- --- ---\n")
+print(generate_text(500, 0.6))
+
+print("--- --- --- Generating text, temp = 0.9 --- --- ---\n")
+print  (generate_text(500, 0.9))
+
+print("--- --- --- Generating text, temp = 1.0 --- --- ---\n")
+print(generate_text(500, 1.0))
